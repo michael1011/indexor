@@ -1,5 +1,7 @@
 import binascii
 
+from psycopg2.extensions import cursor
+
 from indexor.indexer.outputtypes import OutputTypes
 
 insert_tx = """
@@ -10,7 +12,8 @@ INSERT INTO transactions (txid, block, size, weight)
 """
 
 insert_input = """
-INSERT INTO inputs (tx, vin, tx_in, vout) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING;
+INSERT INTO inputs (tx, vin, tx_in, vout) VALUES (%s, %s, %s, %s)
+ON CONFLICT DO NOTHING;
 """
 
 insert_output = """
@@ -28,10 +31,10 @@ sat_factor = 10 ** 8
 class TxIndexer:
     outt: OutputTypes
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.outt = OutputTypes()
 
-    def index_tx(self, cur, block_id, tx):
+    def index_tx(self, cur: cursor, block_id: int, tx: dict) -> None:
         cur.execute(
             insert_tx,
             (
@@ -39,7 +42,7 @@ class TxIndexer:
                 block_id,
                 tx["size"],
                 tx["weight"],
-            )
+            ),
         )
 
         tx_id = cur.fetchone()
@@ -52,7 +55,7 @@ class TxIndexer:
         self.index_outputs(cur, tx_id, tx["vout"])
 
     @staticmethod
-    def index_inputs(cur, tx_id, vins):
+    def index_inputs(cur: cursor, tx_id: int, vins: dict) -> None:
         for i, vin in enumerate(vins):
             is_coinbase = "coinbase" in vin
             cur.execute(
@@ -62,10 +65,10 @@ class TxIndexer:
                     i,
                     None if is_coinbase else binascii.unhexlify(vin["txid"]),
                     None if is_coinbase else vin["vout"],
-                )
+                ),
             )
 
-    def index_outputs(self, cur, tx_id, vouts):
+    def index_outputs(self, cur: cursor, tx_id: int, vouts: dict) -> None:
         for i, vout in enumerate(vouts):
             cur.execute(
                 insert_output,
@@ -74,5 +77,5 @@ class TxIndexer:
                     i,
                     self.outt.get_output_id(cur, vout["scriptPubKey"]["type"]),
                     vout["value"] * sat_factor,
-                )
+                ),
             )

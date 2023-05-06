@@ -1,3 +1,5 @@
+from psycopg2.extensions import cursor
+
 select_output_types = """
 SELECT id, name FROM output_types;
 """
@@ -10,7 +12,7 @@ INSERT INTO output_types (name) VALUES (%s) RETURNING id;
 class OutputTypes:
     types = {}
 
-    def get_output_id(self, cur, output_type: str) -> int:
+    def get_output_id(self, cur: cursor, output_type: str) -> int:
         if len(self.types) == 0:
             self._fetch_outputs(cur)
 
@@ -23,7 +25,7 @@ class OutputTypes:
 
         return output_id
 
-    def _fetch_outputs(self, cur) -> None:
+    def _fetch_outputs(self, cur: cursor) -> None:
         cur.execute(select_output_types)
 
         for row in cur.fetchall():

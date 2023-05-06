@@ -6,4 +6,5 @@ docker run --name indexor-db --rm \
   -e POSTGRES_PASSWORD=indexor \
   -d \
   -p 5432:5432 \
+  --shm-size=1g \
   postgres:15-alpine

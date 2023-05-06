@@ -34,7 +34,7 @@ class BlockIndexer:
                 "Got block %d (%s) with %d transactions",
                 block["height"],
                 block["hash"],
-                len(block["tx"])
+                len(block["tx"]),
             )
 
             cur.execute(
@@ -45,7 +45,7 @@ class BlockIndexer:
                     block["time"],
                     block["size"],
                     block["weight"],
-                )
+                ),
             )
 
             block_id = cur.fetchone()

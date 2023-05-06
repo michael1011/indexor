@@ -11,9 +11,16 @@ python-bitcoinrpc = "^1.0"
 ruff = "^0.0.265"
 psycopg2 = "^2.9.6"
 tomli = "^2.0.1"
+jupyter = "^1.0.0"
+pandas = "^2.0.1"
+matplotlib = "^3.7.1"
+sqlalchemy = "^2.0.12"
 
 [tool.poetry.scripts]
 indexor = "indexor.indexor:cli"
+
+[tool.poe.tasks]
+lint = "ruff check **/*.py"
 
 [build-system]
 requires = ["poetry-core"]
