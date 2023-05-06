@@ -7,13 +7,11 @@ from indexor.indexer.outputtypes import OutputTypes
 insert_tx = """
 INSERT INTO transactions (txid, block, size, weight)
     VALUES (%s, %s, %s, %s)
-    ON CONFLICT DO NOTHING
     RETURNING id;
 """
 
 insert_input = """
-INSERT INTO inputs (tx, vin, tx_in, vout) VALUES (%s, %s, %s, %s)
-ON CONFLICT DO NOTHING;
+INSERT INTO inputs (tx, vin, tx_in, vout) VALUES (%s, %s, %s, %s);
 """
 
 insert_output = """
@@ -22,7 +20,7 @@ INSERT INTO outputs (tx, vout, type, value) VALUES (
     %s,
     %s,
     %s
-) ON CONFLICT DO NOTHING;
+);
 """
 
 sat_factor = 10 ** 8

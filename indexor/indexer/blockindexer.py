@@ -8,7 +8,6 @@ from indexor.indexer.txindexer import TxIndexer
 insert_block = """
 INSERT INTO blocks (hash, height, time, size, weight)
     VALUES (%s, %s, %s, %s, %s)
-    ON CONFLICT DO NOTHING
     RETURNING id;
 """
 

@@ -19,7 +19,7 @@ creates = [
     """
     CREATE TABLE IF NOT EXISTS transactions (
         id BIGSERIAL PRIMARY KEY,
-        txid BYTEA NOT NULL UNIQUE,
+        txid BYTEA NOT NULL UNIQUE DEFERRABLE INITIALLY DEFERRED,
         block SERIAL REFERENCES blocks (id),
         size INTEGER NOT NULL,
         weight INTEGER NOT NULL
@@ -53,7 +53,7 @@ creates = [
     """,
     """
     CREATE INDEX IF NOT EXISTS blocks_height_idx ON blocks (height);
-    CREATE INDEX IF NOT EXISTS inputs_tx_in ON inputs (tx_in);
+    CREATE INDEX IF NOT EXISTS inputs_tx_in ON inputs USING HASH (tx_in);
     """,
 ]
 
