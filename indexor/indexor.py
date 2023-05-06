@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-
+import asyncio
 import logging
 import sys
 from argparse import ArgumentParser, Namespace
@@ -27,15 +26,15 @@ def setup(args: Namespace) -> tuple[Indexer, Db]:
     return Indexer(db, rpc), db
 
 
-def update(args: Namespace) -> None:
+async def update(args: Namespace) -> None:
     idx, db = setup(args)
-    idx.update()
+    await idx.update()
     db.close()
 
 
-def range_index(args: Namespace) -> None:
+async def range_index(args: Namespace) -> None:
     idx, db = setup(args)
-    idx.index_blocks(args.start, args.end)
+    await idx.index_blocks(args.start, args.end)
     db.close()
 
 
@@ -77,8 +76,4 @@ def cli() -> None:
         parser.print_help()
         sys.exit(1)
 
-    args.func(args)
-
-
-if __name__ == "__main__":
-    cli()
+    asyncio.run(args.func(args))

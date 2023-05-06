@@ -53,6 +53,7 @@ creates = [
     """,
     """
     CREATE INDEX IF NOT EXISTS blocks_height_idx ON blocks (height);
+    CREATE INDEX IF NOT EXISTS transactions_block_id ON transactions (block);
     CREATE INDEX IF NOT EXISTS inputs_tx_in ON inputs USING HASH (tx_in);
     """,
 ]
@@ -70,11 +71,11 @@ class Db:
             database=config.database,
         )
 
-        cur = self.conn.cursor()
-        cur.execute("SELECT VERSION()")
-        version = cur.fetchone()
-        logging.debug("Connected to PostgreSQL: %s", version)
-        cur.close()
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT VERSION()")
+            version = cur.fetchone()
+            logging.debug("Connected to PostgreSQL: %s", version)
+            cur.close()
 
         self._create_tables()
 
@@ -82,10 +83,9 @@ class Db:
         self.conn.close()
 
     def _create_tables(self) -> None:
-        cur = self.conn.cursor()
+        with self.conn.cursor() as cur:
+            for stat in creates:
+                cur.execute(stat)
 
-        for stat in creates:
-            cur.execute(stat)
-
-        self.conn.commit()
-        cur.close()
+            self.conn.commit()
+            cur.close()

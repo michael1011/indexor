@@ -15,6 +15,7 @@ jupyter = "^1.0.0"
 pandas = "^2.0.1"
 matplotlib = "^3.7.1"
 sqlalchemy = "^2.0.12"
+seaborn = "^0.12.2"
 
 [tool.poetry.scripts]
 indexor = "indexor.indexor:cli"

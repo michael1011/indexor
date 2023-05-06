@@ -19,26 +19,25 @@ class Indexer:
         self.rpc = rpc
         self.block_idx = BlockIndexer(db, rpc)
 
-    def index_blocks(self, start: int, end: int) -> None:
+    async def index_blocks(self, start: int, end: int) -> None:
         if end == -1:
             end = self._get_latest_block()
 
-        self.block_idx.index(start, end)
+        await self.block_idx.index(start, end)
 
-    def update(self) -> None:
-        con = self.db.conn.cursor()
-        con.execute(select_highest_block)
-        highest_known = con.fetchone()[0] + 1
-        con.close()
+    async def update(self) -> None:
+        with self.db.conn.cursor() as cur:
+            cur.execute(select_highest_block)
+            highest_known = cur.fetchone()[0] + 1
 
-        highest_block = self._get_latest_block()
-        delta = highest_block - highest_known
-        if delta < 1:
-            logging.info("No new blocks to index")
-            return
+            highest_block = self._get_latest_block()
+            delta = highest_block - highest_known
+            if delta < 1:
+                logging.info("No new blocks to index")
+                return
 
-        logging.info("Found %d new blocks", highest_block - highest_known)
-        self.index_blocks(highest_known, highest_block)
+            logging.info("Found %d new blocks", highest_block - highest_known)
+            await self.index_blocks(highest_known, highest_block)
 
     def _get_latest_block(self) -> int:
         return self.rpc.rpc.getblockchaininfo()["blocks"]

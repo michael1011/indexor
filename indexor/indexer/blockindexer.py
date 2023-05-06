@@ -1,9 +1,16 @@
+import asyncio
 import binascii
 import logging
+from concurrent.futures import ThreadPoolExecutor
+
+from psycopg2.errors import UniqueViolation
+from psycopg2.extensions import cursor
 
 from indexor.bitcoin.rpc import Rpc
 from indexor.db.db import Db
 from indexor.indexer.txindexer import TxIndexer
+
+relevant_tables = ["transactions", "inputs", "outputs"]
 
 insert_block = """
 INSERT INTO blocks (hash, height, time, size, weight)
@@ -22,40 +29,67 @@ class BlockIndexer:
         self.rpc = rpc
         self.tx_idx = TxIndexer()
 
-    def index(self, start: int, end: int) -> None:
-        logging.info("Indexing block %d to %d", start, end)
+    async def index(self, start: int, end: int) -> None:
+        logging.info("Indexing blocks %d to %d", start, end)
 
-        cur = self.db.conn.cursor()
+        with self.db.conn.cursor() as cur, ThreadPoolExecutor() as executor:
+            BlockIndexer._disable_triggers(cur)
 
-        for height in range(start, end + 1):
-            block = self.rpc.get_block_by_number(height)
-            logging.debug(
-                "Got block %d (%s) with %d transactions",
-                block["height"],
-                block["hash"],
-                len(block["tx"]),
+            block_future = asyncio.get_event_loop().run_in_executor(
+                executor,
+                self.rpc.get_block_by_number,
+                start,
             )
 
-            cur.execute(
-                insert_block,
-                (
-                    binascii.unhexlify(block["hash"]),
+            for height in range(start, end + 1):
+                block = await block_future
+
+                logging.info(
+                    "Got block %d (%s) with %d transactions",
                     block["height"],
-                    block["time"],
-                    block["size"],
-                    block["weight"],
-                ),
-            )
+                    block["hash"],
+                    len(block["tx"]),
+                )
 
-            block_id = cur.fetchone()
-            if block_id is None:
-                continue
+                if height < end:
+                    block_future = asyncio.get_event_loop().run_in_executor(
+                        executor,
+                        self.rpc.get_block_by_number,
+                        height + 1,
+                    )
 
-            block_id = block_id[0]
+                try:
+                    cur.execute(
+                        insert_block,
+                        (
+                            binascii.unhexlify(block["hash"]),
+                            block["height"],
+                            block["time"],
+                            block["size"],
+                            block["weight"],
+                        ),
+                    )
+                except UniqueViolation:
+                    logging.debug(
+                        "Already got block %d (%s) in database",
+                        block["height"],
+                        block["hash"],
+                    )
+                    self.db.conn.rollback()
+                    continue
 
-            for tx in block["tx"]:
-                self.tx_idx.index_tx(cur, block_id, tx)
+                block_id = cur.fetchone()[0]
+                self.tx_idx.index_txs(cur, block_id, block["tx"])
+                self.db.conn.commit()
 
-            self.db.conn.commit()
+            BlockIndexer._enable_triggers(cur)
 
-        cur.close()
+    @staticmethod
+    def _disable_triggers(cur: cursor) -> None:
+        for table in relevant_tables:
+            cur.execute(f"ALTER TABLE public.{table} DISABLE TRIGGER ALL;")
+
+    @staticmethod
+    def _enable_triggers(cur: cursor) -> None:
+        for table in relevant_tables:
+            cur.execute(f"ALTER TABLE public.{table} ENABLE TRIGGER ALL;")
