@@ -19,7 +19,7 @@ creates = [
     """
     CREATE TABLE IF NOT EXISTS transactions (
         id BIGSERIAL PRIMARY KEY,
-        txid BYTEA NOT NULL UNIQUE DEFERRABLE INITIALLY DEFERRED,
+        txid BYTEA NOT NULL,
         block SERIAL REFERENCES blocks (id),
         size INTEGER NOT NULL,
         weight INTEGER NOT NULL
@@ -27,7 +27,7 @@ creates = [
     """,
     """
     CREATE TABLE IF NOT EXISTS inputs (
-        tx BIGSERIAL REFERENCES transactions (id),
+        tx BIGSERIAL,
         vin SMALLINT,
         PRIMARY KEY (tx, vin),
         -- No reference because we might not have that tx in the db
@@ -44,19 +44,20 @@ creates = [
     """,
     """
     CREATE TABLE IF NOT EXISTS outputs (
-        tx BIGSERIAL REFERENCES transactions (id),
+        tx BIGSERIAL,
         vout SMALLINT,
         PRIMARY KEY (tx, vout),
-        type SMALLSERIAL REFERENCES output_types (id),
+        type SMALLSERIAL,
         value BIGINT NOT NULL
     );
     """,
-    """
-    CREATE INDEX IF NOT EXISTS blocks_height_idx ON blocks (height);
-    CREATE INDEX IF NOT EXISTS transactions_block_id ON transactions (block);
-    CREATE INDEX IF NOT EXISTS inputs_tx_in ON inputs USING HASH (tx_in);
-    """,
 ]
+
+create_indexes = """
+CREATE INDEX IF NOT EXISTS blocks_height_idx ON blocks (height);
+CREATE INDEX IF NOT EXISTS transactions_block_idx ON transactions (block);
+CREATE INDEX IF NOT EXISTS inputs_tx_in_idx ON inputs USING HASH (tx_in);
+"""
 
 
 class Db:
@@ -82,10 +83,14 @@ class Db:
     def close(self) -> None:
         self.conn.close()
 
+    def create_indexes(self) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(create_indexes)
+            self.conn.commit()
+
     def _create_tables(self) -> None:
         with self.conn.cursor() as cur:
             for stat in creates:
                 cur.execute(stat)
 
             self.conn.commit()
-            cur.close()

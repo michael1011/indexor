@@ -32,7 +32,7 @@ class Indexer:
 
             highest_block = self._get_latest_block()
             delta = highest_block - highest_known
-            if delta < 1:
+            if delta < 0:
                 logging.info("No new blocks to index")
                 return
 

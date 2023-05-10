@@ -3,7 +3,7 @@ import logging
 import sys
 from argparse import ArgumentParser, Namespace
 
-from .bitcoin.rpc import Rpc
+from .bitcoin.rpc import with_cookie
 from .config.config import parse_config
 from .db.db import Db
 from .indexer.indexer import Indexer
@@ -21,7 +21,12 @@ def setup(args: Namespace) -> tuple[Indexer, Db]:
     cfg = parse_config(args.config)
 
     db = Db(cfg.db)
-    rpc = Rpc(cfg.bitcoin)
+    rpc = with_cookie(cfg.bitcoin)
+
+    logging.debug(
+        "Connected to Bitcoin: %s",
+        rpc.rpc.getnetworkinfo()["subversion"],
+    )
 
     return Indexer(db, rpc), db
 
@@ -35,6 +40,12 @@ async def update(args: Namespace) -> None:
 async def range_index(args: Namespace) -> None:
     idx, db = setup(args)
     await idx.index_blocks(args.start, args.end)
+    db.close()
+
+
+async def add_indexes(args: Namespace) -> None:
+    _, db = setup(args)
+    db.create_indexes()
     db.close()
 
 
@@ -67,6 +78,9 @@ def cli() -> None:
         help="Block height to stop indexing (-1 for latest block)",
         type=int,
     )
+
+    add_indexes_parser = subparsers.add_parser("add-indexes")
+    add_indexes_parser.set_defaults(func=add_indexes)
 
     args = parser.parse_args()
 

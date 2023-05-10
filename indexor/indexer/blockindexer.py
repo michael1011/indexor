@@ -1,11 +1,12 @@
-import asyncio
 import binascii
 import logging
+import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 
 from psycopg2.errors import UniqueViolation
 from psycopg2.extensions import cursor
 
+from indexor.bitcoin.blockfetcher import BlockFetcher
 from indexor.bitcoin.rpc import Rpc
 from indexor.db.db import Db
 from indexor.indexer.txindexer import TxIndexer
@@ -35,14 +36,17 @@ class BlockIndexer:
         with self.db.conn.cursor() as cur, ThreadPoolExecutor() as executor:
             BlockIndexer._disable_triggers(cur)
 
-            block_future = asyncio.get_event_loop().run_in_executor(
+            rpc_threads = max(multiprocessing.cpu_count() - 1, 1)
+            logging.debug("Using %d RPC threads", rpc_threads)
+            block_fetcher = BlockFetcher(
+                self.rpc,
                 executor,
-                self.rpc.get_block_by_number,
-                start,
+                rpc_threads,
             )
+            block_fetcher.start(start, end)
 
-            for height in range(start, end + 1):
-                block = await block_future
+            for _ in range(start, end + 1):
+                block = await block_fetcher.get()
 
                 logging.info(
                     "Got block %d (%s) with %d transactions",
@@ -51,12 +55,7 @@ class BlockIndexer:
                     len(block["tx"]),
                 )
 
-                if height < end:
-                    block_future = asyncio.get_event_loop().run_in_executor(
-                        executor,
-                        self.rpc.get_block_by_number,
-                        height + 1,
-                    )
+                block_fetcher.add()
 
                 try:
                     cur.execute(
